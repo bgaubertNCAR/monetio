@@ -70,6 +70,7 @@ def open_mfdataset(
     if not surf_only:
         dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
         var_list.append("pres_pa_int")
+        # Pressure at the interface
         if "PMID" not in dset_load.keys():
             dset_load["PMID"] = _calc_pressure(dset_load)
         var_list = var_list + ["pres_pa_mid"]
