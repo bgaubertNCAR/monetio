@@ -216,7 +216,7 @@ def _calc_pressure(dset):
     )
     return P
 
-def _calc_pressure(dset):
+def _calc_pressure_i(dset):
     """Calculates interface layer pressure using P0, PS, hyai, hybi
 
     Parameters
