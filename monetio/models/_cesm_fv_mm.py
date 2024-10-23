@@ -216,6 +216,55 @@ def _calc_pressure(dset):
     )
     return P
 
+def _calc_pressure(dset):
+    """Calculates interface layer pressure using P0, PS, hyai, hybi
+
+    Parameters
+    ----------
+    dset: xr.Dataset
+
+    Returns
+    -------
+    xr.DataArray
+    """
+    presvars = ["PS", "hyai", "hybi"]
+    if not all(pvar in list(dset.keys()) for pvar in presvars):
+        raise KeyError(
+            "The model does not have the variables to calculate"
+            + "the pressure required for satellite comparison"
+            + "If the vertical coordinate is not needed, set surface_only=True"
+        )
+    time = dset["PS"].time.values
+    vert = dset["hyai"].ilev.values
+    lat = dset["PS"].lat.values
+    lon = dset["PS"].lon.values
+    n_vert = len(vert)
+    n_time = len(time)
+    n_lat = len(lat)
+    n_lon = len(lon)
+
+    pressure_i = np.zeros((n_time, n_vert, n_lat, n_lon))
+
+    if "P0" not in dset.keys():
+        warnings.warn("P0 not in netcdf keys, assuming 100_000 Pa")
+        p0 = 100_000
+    else:
+        p0 = dset["P0"].values
+
+    for nlev in range(n_vert):
+        pressure_i[:, nlev, :, :] = (
+            dset["hyai"][nlev].values * p0 + dset["hybi"][nlev].values * dset["PS"].values
+        )
+    P_int = xr.DataArray(
+        data=pressure_i,
+        dims=["time", "ilev", "lat", "lon"],
+        coords={"time": time, "ilev": vert, "lat": lat, "lon": lon},
+        attrs={"description": "Interface layer pressure", "units": "Pa"},
+    )
+    return P_int
+
+
+
 
 def _calc_hydrostatic_height(dset):
     """Calculates midlayer height using PMID, P, PS and PHIS, T,
