@@ -68,9 +68,11 @@ def open_mfdataset(
     # extract variables of choice
     # If vertical information is required, add it.
     if not surf_only:
+        dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
+        var_list.append("pres_pa_int")
         if "PMID" not in dset_load.keys():
             dset_load["PMID"] = _calc_pressure(dset_load)
-        var_list = var_list + ["PMID"]
+        var_list = var_list + ["pres_pa_mid"]
         if "Z3" not in dset_load.keys():
             warnings.warn("Geopotential height Z3 is not in model keys. Assuming hydrostatic runs")
             dset_load["Z3"] = _calc_hydrostatic_height(dset_load)
