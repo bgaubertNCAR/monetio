@@ -68,25 +68,28 @@ def open_mfdataset(
     # extract variables of choice
     # If vertical information is required, add it.
     if not surf_only:
+	# add pressure at the interface 
         dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
         var_list.append("pres_pa_int")
-        # Pressure at the interface
+        #import pdb; pdb.set_trace()  # debug 
         if "PMID" not in dset_load.keys():
             dset_load["PMID"] = _calc_pressure(dset_load)
         var_list = var_list + ["pres_pa_mid"]
         if "Z3" not in dset_load.keys():
             warnings.warn("Geopotential height Z3 is not in model keys. Assuming hydrostatic runs")
             dset_load["Z3"] = _calc_hydrostatic_height(dset_load)
-
-        dset_load.rename(
-            {
-                "T": "temperature_k",
-                "Z3": "alt_msl_m_mid",
-                "PS": "surfpres_pa",
-                "PMID": "pres_pa_mid",
-            }
+        var_list = var_list + ["alt_msl_m_mid"]
+        
+        dset_load =  dset_load.rename(
+                        {
+                            "T": "temperature_k",
+                            "Z3": "alt_msl_m_mid",
+                            "PS": "surfpres_pa",
+                            "PMID": "pres_pa_mid"
+                        }
         )
         # Calc height agl. PHIS is in m2/s2, whereas Z3 is in already in m
+        #import pdb; pdb.set_trace()
         dset_load["alt_agl_m_mid"] = dset_load["alt_msl_m_mid"] - dset_load["PHIS"] / 9.80665
         dset_load["alt_agl_m_mid"].attrs = {
             "description": "geopotential height above ground level",
@@ -255,8 +258,9 @@ def _calc_pressure_i(dset):
         p0 = dset["P0"].values
 
     for nlev in range(n_vert):
+        #import pdb; pdb.set_trace()
         pressure_i[:, nlev, :, :] = (
-            dset["hyai"][nlev].values * p0 + dset["hybi"][nlev].values * dset["PS"].values
+            dset["hyai"][0, nlev].values * p0 + dset["hybi"][0, nlev].values * dset["PS"].values
         )
     P_int = xr.DataArray(
         data=pressure_i,
