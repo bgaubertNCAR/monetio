@@ -46,7 +46,6 @@ def open_mfdataset(
             + "and has not been properly tested. Use at own risk."
         )
 
-    from pyresample.utils import wrap_longitudes
 
     # check that the files are netcdf format
     names, netcdf = _ensure_mfdataset_filenames(fname)
@@ -107,9 +106,12 @@ def open_mfdataset(
     # rename altitude dimension to z for monet use
     # also rename lon to x and lat to y
     dset = dset.rename_dims({"lon": "x", "lat": "y", "lev": "z"})
+    if np.any(dset["lon"] > 180):
+        dset["lon"] = (dset["lon"] + 180) % 360 - 180
+        dset = dset.sortby("lon")
 
     # convert to -180 to 180 longitude
-    lon = wrap_longitudes(dset["lon"])
+    lon = dset["lon"]
     lat = dset["lat"]
     lons, lats = meshgrid(lon, lat)
     dset["longitude"] = (("y", "x"), lons)
