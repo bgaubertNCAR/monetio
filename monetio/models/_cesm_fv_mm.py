@@ -67,10 +67,6 @@ def open_mfdataset(
     # extract variables of choice
     # If vertical information is required, add it.
     if not surf_only:
-	# add pressure at the interface 
-        dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
-        var_list.append("pres_pa_int")
-        #import pdb; pdb.set_trace()  # debug 
         if "PMID" not in dset_load.keys():
             dset_load["PMID"] = _calc_pressure(dset_load)
         var_list = var_list + ["pres_pa_mid"]
@@ -78,7 +74,16 @@ def open_mfdataset(
             warnings.warn("Geopotential height Z3 is not in model keys. Assuming hydrostatic runs")
             dset_load["Z3"] = _calc_hydrostatic_height(dset_load)
         var_list = var_list + ["alt_msl_m_mid"]
-        
+
+        # nori mod: 
+        # calc layer thickness if hyai and hybi exist
+        if "hyai" and "hybi" in dset_load.keys():
+            dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
+            var_list.append("pres_pa_int")
+
+            dset_load["dz_m"] = _calc_layer_thickness_i(dset_load)
+            var_list.append("dz_m")
+       
         dset_load =  dset_load.rename(
                         {
                             "T": "temperature_k",
@@ -88,12 +93,12 @@ def open_mfdataset(
                         }
         )
         # Calc height agl. PHIS is in m2/s2, whereas Z3 is in already in m
-        #import pdb; pdb.set_trace()
         dset_load["alt_agl_m_mid"] = dset_load["alt_msl_m_mid"] - dset_load["PHIS"] / 9.80665
         dset_load["alt_agl_m_mid"].attrs = {
             "description": "geopotential height above ground level",
             "units": "m",
         }
+       
         var_list = var_list + [
             "temperature_k",
             "alt_msl_m_mid",
@@ -124,6 +129,11 @@ def open_mfdataset(
     # re-order so surface is associated with the first vertical index
     dset = dset.sortby("z", ascending=False)
 
+    # nori mod: 
+    # if pres_pa_int exists, reorder so surface is first vertical level
+    if "pres_pa_int" in dset.keys():
+        dset = dset.sortby("ilev", ascending=False) 
+    
     # Get rid of original 1-D lat and lon to avoid future conflicts
     dset = dset.drop_vars(["lat", "lon"])
 
@@ -260,7 +270,6 @@ def _calc_pressure_i(dset):
         p0 = dset["P0"].values
 
     for nlev in range(n_vert):
-        #import pdb; pdb.set_trace()
         pressure_i[:, nlev, :, :] = (
             dset["hyai"][0, nlev].values * p0 + dset["hybi"][0, nlev].values * dset["PS"].values
         )
@@ -271,9 +280,6 @@ def _calc_pressure_i(dset):
         attrs={"description": "Interface layer pressure", "units": "Pa"},
     )
     return P_int
-
-
-
 
 def _calc_hydrostatic_height(dset):
     """Calculates midlayer height using PMID, P, PS and PHIS, T,
@@ -306,7 +312,6 @@ def _calc_hydrostatic_height(dset):
         raise Exception(
             "Expected default CESM behaviour:" + "pressure levels should be in decreasing order"
         )
-
     height = np.zeros((n_time, n_vert, n_lat, n_lon))
     height[:, n_vert, :, :] = dset["PHIS"].values / GRAVITY
     for nlev in range(n_vert - 1, -1, -1):
@@ -323,3 +328,88 @@ def _calc_hydrostatic_height(dset):
         attrs={"description": "Mid layer (hydrostatic) height", "units": "m"},
     )
     return z
+
+# nori mod
+def _calc_hydrostatic_height_i(dset):
+    """Calculates interface layer height using pres_pa_int, PHIS, and T.
+
+    Parameters
+    ----------
+    dset: xr.Dataset
+
+    Returns
+    -------
+    xr.DataArray
+    """
+    R = 8.314  # Pa * m3 / mol K
+    M_AIR = 0.028  # kg / mol
+    GRAVITY = 9.80665  # m / s2
+
+    time = dset.time.values
+    ilev = dset.ilev.values
+    lat = dset.lat.values
+    lon = dset.lon.values
+
+    # check if the vertical levels go from highest to lowest altitude (low to high pressure)
+    # which is the default in CESM. That means, that the hybrid
+    # pressure levels should be increasing.
+    _height_decreasing = np.all(ilev[:-1] < ilev[1:])
+    if not _height_decreasing:
+        raise Exception(
+            "Expected default CESM behaviour:" + "pressure levels should be in increasing order, height in decreasing order"
+        )
+    # surface geopotential height (PHIS / g)
+    height = np.zeros((len(time), len(ilev), len(lat), len(lon)))
+    height[:, -1, :, :] = dset["PHIS"].values / GRAVITY     # surface height
+    
+    for nlev in range(len(ilev) - 2, -1, -1):       
+        temp = dset["T"].isel(lev=nlev).values      # midlayer temp approx
+        pressure_top = dset["pres_pa_int"].isel(ilev=nlev+1)
+        pressure = dset["pres_pa_int"].isel(ilev=nlev)
+
+        height[:, nlev, :, :] = (
+            height[:, nlev + 1, :, :] -
+            (R * temp / (GRAVITY * M_AIR)) * np.log(pressure / pressure_top)
+        )
+
+    z = xr.DataArray(
+        data=height,
+        dims=["time", "ilev", "lat", "lon"],
+        coords={"time": time, "ilev": ilev, "lat": lat, "lon": lon},
+        attrs={"description": "Interface Layer (hydrostatic) Height", "units": "m"},
+    )
+    return z 
+
+# nori mod
+def _calc_layer_thickness_i(dset):
+    """
+    Calculates layer thickness (dz_m) from interface heights. 
+    Note: This calculates based on pressure being in increasing order, 
+    and altitude in decreasing order. The code flips all the variables
+    along the 'z' dimensions at the end. 'pres_pa_int' does not 
+    because it has a dimension of 'ilev' instead of 'z'. Add a correction
+    for this last part. 
+
+    Parameters
+    ----------
+    dset: xr.Dataset
+
+    Returns
+    ----------
+    xr.DataArray
+        Layer Thickness (m)
+    """
+    z_int = _calc_hydrostatic_height_i(dset)
+
+    # # compute layer thickness
+    dz_m = np.zeros( (len(dset.time), len(dset.lev), len(dset.lat), len(dset.lon)) )
+    for nlev in range(len(dset.lev)):
+        dz_m[:, nlev, :, :] = z_int[:, nlev, :, :] - z_int[:, nlev+1, :, :]
+
+    dz_m = xr.DataArray(
+        data=dz_m, 
+        dims=["time", "lev", "lat", "lon"],
+        coords={"time": dset.time, "lev": dset.lev, "lat": dset.lat, "lon": dset.lon},
+        attrs={"description": "Layer Thickness (based on interface pressure)", "units": "m"},
+    )
+    return dz_m 
