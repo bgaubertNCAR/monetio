@@ -75,7 +75,6 @@ def open_mfdataset(
             dset_load["Z3"] = _calc_hydrostatic_height(dset_load)
         var_list = var_list + ["alt_msl_m_mid"]
 
-        # nori mod: 
         # calc layer thickness if hyai and hybi exist
         if "hyai" and "hybi" in dset_load.keys():
             dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
@@ -129,7 +128,6 @@ def open_mfdataset(
     # re-order so surface is associated with the first vertical index
     dset = dset.sortby("z", ascending=False)
 
-    # nori mod: 
     # if pres_pa_int exists, reorder so surface is first vertical level
     if "pres_pa_int" in dset.keys():
         dset = dset.sortby("ilev", ascending=False) 
@@ -329,7 +327,6 @@ def _calc_hydrostatic_height(dset):
     )
     return z
 
-# nori mod
 def _calc_hydrostatic_height_i(dset):
     """Calculates interface layer height using pres_pa_int, PHIS, and T.
 
@@ -380,7 +377,6 @@ def _calc_hydrostatic_height_i(dset):
     )
     return z 
 
-# nori mod
 def _calc_layer_thickness_i(dset):
     """
     Calculates layer thickness (dz_m) from interface heights. 
