@@ -408,4 +408,4 @@ def _calc_layer_thickness_i(dset):
         coords={"time": dset.time, "lev": dset.lev, "lat": dset.lat, "lon": dset.lon},
         attrs={"description": "Layer Thickness (based on interface pressure)", "units": "m"},
     )
-    return dz_m 
+    return dz_m
