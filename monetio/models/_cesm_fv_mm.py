@@ -237,7 +237,7 @@ def _calc_pressure_i(dset):
 
     Parameters
     ----------
-    dset: xr.Dataset
+    dset : xr.Dataset
 
     Returns
     -------
