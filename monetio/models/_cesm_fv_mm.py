@@ -332,7 +332,7 @@ def _calc_hydrostatic_height_i(dset):
 
     Parameters
     ----------
-    dset: xr.Dataset
+    dset : xr.Dataset
 
     Returns
     -------
