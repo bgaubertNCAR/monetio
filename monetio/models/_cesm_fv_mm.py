@@ -246,9 +246,9 @@ def _calc_pressure_i(dset):
     presvars = ["PS", "hyai", "hybi"]
     if not all(pvar in list(dset.keys()) for pvar in presvars):
         raise KeyError(
-            "The model does not have the variables to calculate"
-            + "the pressure required for satellite comparison"
-            + "If the vertical coordinate is not needed, set surface_only=True"
+            "The model does not have the variables to calculate "
+            "the pressure required for satellite comparison. "
+            "If the vertical coordinate is not needed, set surface_only=True"
         )
     time = dset["PS"].time.values
     vert = dset["hyai"].ilev.values
