@@ -339,7 +339,7 @@ def _calc_hydrostatic_height_i(dset):
     xr.DataArray
     """
     R = 8.314  # Pa * m3 / mol K
-    M_AIR = 0.028  # kg / mol
+    M_AIR = 0.029  # kg / mol
     GRAVITY = 9.80665  # m / s2
 
     time = dset.time.values
