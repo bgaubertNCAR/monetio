@@ -388,7 +388,7 @@ def _calc_layer_thickness_i(dset):
 
     Parameters
     ----------
-    dset: xr.Dataset
+    dset : xr.Dataset
 
     Returns
     ----------
