@@ -78,8 +78,6 @@ def open_mfdataset(
         # calc layer thickness if hyai and hybi exist
         if "hyai" and "hybi" in dset_load.keys():
             dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
-            var_list.append("pres_pa_int")
-
             dset_load["dz_m"] = _calc_layer_thickness_i(dset_load)
             var_list.append("dz_m")
        
@@ -128,10 +126,6 @@ def open_mfdataset(
     # re-order so surface is associated with the first vertical index
     dset = dset.sortby("z", ascending=False)
 
-    # if pres_pa_int exists, reorder so surface is first vertical level
-    if "pres_pa_int" in dset.keys():
-        dset = dset.sortby("ilev", ascending=False) 
-    
     # Get rid of original 1-D lat and lon to avoid future conflicts
     dset = dset.drop_vars(["lat", "lon"])
 
