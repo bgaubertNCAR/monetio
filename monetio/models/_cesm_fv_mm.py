@@ -46,7 +46,6 @@ def open_mfdataset(
             + "and has not been properly tested. Use at own risk."
         )
 
-
     # check that the files are netcdf format
     names, netcdf = _ensure_mfdataset_filenames(fname)
 
@@ -80,14 +79,14 @@ def open_mfdataset(
             dset_load["pres_pa_int"] = _calc_pressure_i(dset_load)
             dset_load["dz_m"] = _calc_layer_thickness_i(dset_load)
             var_list.append("dz_m")
-       
-        dset_load =  dset_load.rename(
-                        {
-                            "T": "temperature_k",
-                            "Z3": "alt_msl_m_mid",
-                            "PS": "surfpres_pa",
-                            "PMID": "pres_pa_mid"
-                        }
+
+        dset_load = dset_load.rename(
+            {
+                "T": "temperature_k",
+                "Z3": "alt_msl_m_mid",
+                "PS": "surfpres_pa",
+                "PMID": "pres_pa_mid",
+            }
         )
         # Calc height agl. PHIS is in m2/s2, whereas Z3 is in already in m
         dset_load["alt_agl_m_mid"] = dset_load["alt_msl_m_mid"] - dset_load["PHIS"] / 9.80665
@@ -95,7 +94,7 @@ def open_mfdataset(
             "description": "geopotential height above ground level",
             "units": "m",
         }
-       
+
         var_list = var_list + [
             "temperature_k",
             "alt_msl_m_mid",
@@ -226,6 +225,7 @@ def _calc_pressure(dset):
     )
     return P
 
+
 def _calc_pressure_i(dset):
     """Calculates interface layer pressure using P0, PS, hyai, hybi
 
@@ -272,6 +272,7 @@ def _calc_pressure_i(dset):
         attrs={"description": "Interface layer pressure", "units": "Pa"},
     )
     return P_int
+
 
 def _calc_hydrostatic_height(dset):
     """Calculates midlayer height using PMID, P, PS and PHIS, T,
@@ -321,6 +322,7 @@ def _calc_hydrostatic_height(dset):
     )
     return z
 
+
 def _calc_hydrostatic_height_i(dset):
     """Calculates interface layer height using pres_pa_int, PHIS, and T.
 
@@ -347,20 +349,20 @@ def _calc_hydrostatic_height_i(dset):
     _height_decreasing = np.all(ilev[:-1] < ilev[1:])
     if not _height_decreasing:
         raise Exception(
-            "Expected default CESM behaviour:" + "pressure levels should be in increasing order, height in decreasing order"
+            "Expected default CESM behaviour:"
+            + "pressure levels should be in increasing order, height in decreasing order"
         )
     # surface geopotential height (PHIS / g)
     height = np.zeros((len(time), len(ilev), len(lat), len(lon)))
-    height[:, -1, :, :] = dset["PHIS"].values / GRAVITY     # surface height
-    
-    for nlev in range(len(ilev) - 2, -1, -1):       
-        temp = dset["T"].isel(lev=nlev).values      # midlayer temp approx
-        pressure_top = dset["pres_pa_int"].isel(ilev=nlev+1)
+    height[:, -1, :, :] = dset["PHIS"].values / GRAVITY  # surface height
+
+    for nlev in range(len(ilev) - 2, -1, -1):
+        temp = dset["T"].isel(lev=nlev).values  # midlayer temp approx
+        pressure_top = dset["pres_pa_int"].isel(ilev=nlev + 1)
         pressure = dset["pres_pa_int"].isel(ilev=nlev)
 
-        height[:, nlev, :, :] = (
-            height[:, nlev + 1, :, :] -
-            (R * temp / (GRAVITY * M_AIR)) * np.log(pressure / pressure_top)
+        height[:, nlev, :, :] = height[:, nlev + 1, :, :] - (R * temp / (GRAVITY * M_AIR)) * np.log(
+            pressure / pressure_top
         )
 
     z = xr.DataArray(
@@ -369,16 +371,17 @@ def _calc_hydrostatic_height_i(dset):
         coords={"time": time, "ilev": ilev, "lat": lat, "lon": lon},
         attrs={"description": "Interface Layer (hydrostatic) Height", "units": "m"},
     )
-    return z 
+    return z
+
 
 def _calc_layer_thickness_i(dset):
     """
-    Calculates layer thickness (dz_m) from interface heights. 
-    Note: This calculates based on pressure being in increasing order, 
+    Calculates layer thickness (dz_m) from interface heights.
+    Note: This calculates based on pressure being in increasing order,
     and altitude in decreasing order. The code flips all the variables
-    along the 'z' dimensions at the end. 'pres_pa_int' does not 
+    along the 'z' dimensions at the end. 'pres_pa_int' does not
     because it has a dimension of 'ilev' instead of 'z'. Add a correction
-    for this last part. 
+    for this last part.
 
     Parameters
     ----------
@@ -392,12 +395,12 @@ def _calc_layer_thickness_i(dset):
     z_int = _calc_hydrostatic_height_i(dset)
 
     # # compute layer thickness
-    dz_m = np.zeros( (len(dset.time), len(dset.lev), len(dset.lat), len(dset.lon)) )
+    dz_m = np.zeros((len(dset.time), len(dset.lev), len(dset.lat), len(dset.lon)))
     for nlev in range(len(dset.lev)):
-        dz_m[:, nlev, :, :] = z_int[:, nlev, :, :] - z_int[:, nlev+1, :, :]
+        dz_m[:, nlev, :, :] = z_int[:, nlev, :, :] - z_int[:, nlev + 1, :, :]
 
     dz_m = xr.DataArray(
-        data=dz_m, 
+        data=dz_m,
         dims=["time", "lev", "lat", "lon"],
         coords={"time": dset.time, "lev": dset.lev, "lat": dset.lat, "lon": dset.lon},
         attrs={"description": "Layer Thickness (based on interface pressure)", "units": "m"},
